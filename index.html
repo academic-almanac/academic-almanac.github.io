@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Academic Atlas — every academic deadline in one place</title>
+  <meta name="description" content="Conferences, journal special issues and PhD courses for Information Systems, Entrepreneurship/Management and Finance/Economics — filterable, deadline-first." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <a class="skip-link" href="#app">Skip to content</a>
+
+  <header class="site-header">
+    <a class="wordmark" href="#/" aria-label="Academic Atlas — dashboard">
+      <svg class="wordmark-globe" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="1.5" aria-hidden="true">
+        <circle cx="12" cy="12" r="9" />
+        <ellipse cx="12" cy="12" rx="4" ry="9" />
+        <path d="M3.5 9h17M3.5 15h17" />
+      </svg>
+      <span class="wordmark-text">Academic<em>Atlas</em></span>
+    </a>
+    <nav class="site-nav" aria-label="Primary">
+      <a href="#/" data-nav="dashboard">Dashboard</a>
+      <a href="#/conferences" data-nav="conference">Conferences</a>
+      <a href="#/special-issues" data-nav="special-issue">Special issues</a>
+      <a href="#/courses" data-nav="course">Courses</a>
+      <!-- v2 placeholder: job-market cluster (academia + industry R&D) -->
+      <span class="nav-stub" title="Planned — not part of this mockup">Job market <small>soon</small></span>
+    </nav>
+  </header>
+
+  <main id="app" tabindex="-1">
+    <!-- Views are rendered here by app.js -->
+    <noscript><p class="noscript">Academic Atlas needs JavaScript to render its listings.</p></noscript>
+  </main>
+
+  <footer class="site-footer">
+    <p><strong>Academic Atlas</strong> · v1 static mockup — seed data, hand-verified. Covers Information Systems, Entrepreneurship &amp; Management, Finance &amp; Economics.</p>
+    <p class="footer-fine">No login required to browse. Data collection &amp; organizer submissions arrive in v2.</p>
+  </footer>
+
+  <script src="data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
