@@ -276,6 +276,7 @@ main:focus { outline: none; }
 .pill.u-soon { background: var(--amber-soft); color: var(--amber); }
 .pill.u-ok { background: var(--ok-soft); color: var(--navy); }
 .pill.u-closed { background: #efefec; color: var(--ink-3); }
+.pill.u-tbd { background: #efefec; color: var(--ink-3); font-style: italic; }
 
 /* ---------- cluster entry cards (dashboard) ---------- */
 .cluster-grid {

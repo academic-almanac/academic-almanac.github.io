@@ -128,12 +128,18 @@ function fmtDate(iso) {
 }
 
 // countdown label + urgency class, shared by pills everywhere
-function countdown(iso) {
+function countdown(iso, tbd) {
+  if (tbd) return { text: "TBD", cls: "u-tbd" };
   const d = daysUntil(iso);
   if (d < 0) return { text: "Closed", cls: "u-closed" };
   if (d === 0) return { text: "Due today", cls: "u-urgent" };
   const text = d === 1 ? "1 day" : `${d} days`;
   return { text, cls: d <= 7 ? "u-urgent" : d <= 30 ? "u-soon" : "u-ok" };
+}
+
+// deadline field shown next to the pill — real date, or an honest "not yet published"
+function fmtDeadline(item) {
+  return item.deadlineTBD ? "Not yet published — check official site" : fmtDate(item.deadline);
 }
 
 // Seed data is first-party, but escape anyway so pasted-in real
@@ -203,15 +209,15 @@ function renderDashboard() {
   }).join("");
 
   const soonCards = soonest.map((it) => {
-    const cd = countdown(it.deadline);
+    const cd = countdown(it.deadline, it.deadlineTBD);
     return `
       <a class="soon-card" href="#/${CLUSTERS[it.cluster].slug}?open=${it.id}">
         <span class="soon-card-top">
           <span class="cluster-tag ${it.cluster}">${CLUSTERS[it.cluster].tagLabel}</span>
-          <span class="pill ${cd.cls}" data-deadline="${it.deadline}">${cd.text}</span>
+          <span class="pill ${cd.cls}" data-deadline="${it.deadline}" data-tbd="${it.deadlineTBD ? "1" : ""}">${cd.text}</span>
         </span>
         <span class="item-name">${esc(it.acronym)}</span>
-        <span class="item-sub">${esc(it.deadlineLabel)} · ${fmtDate(it.deadline)}</span>
+        <span class="item-sub">${esc(it.deadlineLabel)} · ${fmtDeadline(it)}</span>
       </a>`;
   }).join("");
 
@@ -368,7 +374,7 @@ function renderRows(clusterId) {
 }
 
 function rowHTML(item) {
-  const cd = countdown(item.deadline);
+  const cd = countdown(item.deadline, item.deadlineTBD);
   const chips = [
     ...item.disciplines.map((d) => `<span class="chip">${DISCIPLINES[d]}</span>`),
     item.ranking.band !== "na"
@@ -379,14 +385,14 @@ function rowHTML(item) {
   return `
     <li class="row" id="item-${item.id}">
       <button class="row-head" aria-expanded="false" aria-controls="detail-${item.id}">
-        <span class="pill ${cd.cls}" data-deadline="${item.deadline}">${cd.text}</span>
+        <span class="pill ${cd.cls}" data-deadline="${item.deadline}" data-tbd="${item.deadlineTBD ? "1" : ""}">${cd.text}</span>
         <span class="row-main">
           <span class="row-title"><strong>${esc(item.acronym)}</strong><span class="t-sep">·</span>${esc(item.title)}</span>
           <span class="row-chips">${chips}</span>
         </span>
         <span class="row-when">
           <span class="lbl">${esc(item.deadlineLabel)}</span>
-          ${fmtDate(item.deadline)}
+          ${fmtDeadline(item)}
         </span>
         <span class="row-where">
           ${esc(locationText(item))}
@@ -492,7 +498,7 @@ function route() {
 // Keep countdown pills honest if the tab stays open across midnight.
 setInterval(() => {
   document.querySelectorAll("[data-deadline]").forEach((el) => {
-    const cd = countdown(el.dataset.deadline);
+    const cd = countdown(el.dataset.deadline, el.dataset.tbd === "1");
     el.textContent = cd.text;
     el.className = `pill ${cd.cls}`;
   });
