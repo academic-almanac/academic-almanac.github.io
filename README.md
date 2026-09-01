@@ -21,6 +21,19 @@ binary, unmergeable, and lives in the shared OneDrive folder. Only the generated
 `data.json` is committed. Expired entries stop showing on the site but remain in
 the Excel.
 
+## Regenerating data.json
+
+    python scripts/generate.py                 # validate + write data.json
+    python scripts/generate.py --dry-run       # validate only, write nothing
+    python scripts/generate.py --keep-expired  # include past listings too
+
+Needs `openpyxl` (`pip install openpyxl`). Columns are matched by header name,
+so column order may change but header text may not. Validation follows the
+workbook's own `Legend & rules` and `Field Guide` sheets: **errors block the
+write, warnings do not.** Listings whose dates have all passed are dropped from
+`data.json` but stay in the Excel — that is what makes the site forward-looking.
+Output is sorted nearest submission deadline first.
+
 ## Files
 
 | File | Role |
