@@ -170,11 +170,28 @@ def main():
                          "so a weekly run only reports what is new.")
     ap.add_argument("--allow-empty", action="store_true",
                     help="exit 0 when nothing new is found (for scheduled runs)")
+    ap.add_argument("--seen", type=Path, default=None,
+                    help="running log of every link ever emitted, read and "
+                         "appended (default: candidates/seen.txt). This is what "
+                         "stops a rejected call reappearing next week.")
+    ap.add_argument("--no-seen", action="store_true",
+                    help="do not read or update the seen log")
     args = ap.parse_args()
 
     out = args.out or (root / "candidates" /
                        ("emerald-" + date.today().isoformat() + ".jsonl"))
     out.parent.mkdir(parents=True, exist_ok=True)
+    # Never overwrite an earlier batch: two runs on one day would otherwise
+    # clobber the first file, losing any "skip": true a reviewer had added.
+    if out.exists():
+        stem, n = out, 2
+        while out.exists():
+            out = stem.with_name(stem.stem + "-" + str(n) + stem.suffix)
+            n += 1
+        print("note: " + stem.name + " exists; writing " + out.name + " instead.")
+
+    seen_path = None if args.no_seen else (
+        args.seen or (root / "candidates" / "seen.txt"))
 
     session = requests.Session()
     session.headers.update({"User-Agent": UA,
@@ -216,6 +233,12 @@ def main():
                         yield rec[key]
 
     known = set()
+    if seen_path and seen_path.exists():
+        for line in seen_path.read_text(encoding="utf-8").splitlines():
+            line = line.split("#")[0].strip()
+            if line:
+                known.add(line)
+        print("known: " + str(len(known)) + " link(s) from " + seen_path.name)
     for path in args.known:
         if path.exists():
             found = set(links_in(path))
@@ -297,6 +320,19 @@ def main():
                  datetime.now().replace(microsecond=0).isoformat() + "\n")
         for rec in records:
             fh.write(json.dumps(rec, ensure_ascii=False) + "\n")
+
+    if seen_path:
+        stamp = date.today().isoformat()
+        fresh = not seen_path.exists() or seen_path.stat().st_size == 0
+        with seen_path.open("a", encoding="utf-8") as fh:
+            if fresh:
+                fh.write("# Every link this scraper has emitted. Read on every "
+                         "run so nothing is offered twice - including calls a "
+                         "reviewer rejected.\n")
+            for rec in records:
+                fh.write(rec["official_link"] + "  # " + stamp + "\n")
+        print("seen log: " + str(len(records)) + " link(s) added to " +
+              seen_path.name)
 
     print("\n" + str(len(records)) + " call(s) written to " + str(out))
     if dropped:

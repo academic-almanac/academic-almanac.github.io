@@ -56,19 +56,15 @@ jobs:
           set -euo pipefail
           OUT="candidates/emerald-$(date -u +%F).jsonl"
 
-          # Everything already published, plus everything a previous run filed -
-          # including lines a human marked "skip", so rejected calls stay
-          # rejected instead of returning every Monday.
-          KNOWN="--known data.json"
-          for f in candidates/*.jsonl; do
-            [ -e "$f" ] && KNOWN="$KNOWN --known $f"
-          done
-
+          # candidates/seen.txt is the durable memory - every link ever emitted,
+          # including ones a reviewer rejected - and the scraper reads and
+          # appends to it automatically. data.json is passed as a belt-and-braces
+          # check against what is actually published.
           python scripts/scrape_emerald.py \
             --max-pages "$MAX_PAGES" \
             --min-days "$MIN_DAYS" \
             --allow-empty \
-            $KNOWN \
+            --known data.json \
             --out "$OUT"
 
           if [ -f "$OUT" ]; then
@@ -87,7 +83,9 @@ jobs:
           set -euo pipefail
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add "${{ steps.scrape.outputs.file }}"
+          # seen.txt must be committed too, or next week's runner starts blind
+          # and re-offers everything, rejections included.
+          git add "${{ steps.scrape.outputs.file }}" candidates/seen.txt
           git commit -m "Weekly scrape: ${{ steps.scrape.outputs.count }} new call(s) for review"
           git push
 
