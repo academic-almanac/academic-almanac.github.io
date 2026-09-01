@@ -1,3 +1,10 @@
+# OneDrive / OS clutter
 desktop.ini
-*.url
+Thumbs.db
 .DS_Store
+
+# The Excel master is never tracked: binary, unmergeable, and it lives in
+# OneDrive. data.json is the generated artefact that the site actually reads.
+*.xlsx
+*.xlsm
+~$*

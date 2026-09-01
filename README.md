@@ -1,32 +1,39 @@
-# Academic Atlas — v1 static mockup
+# Academic Almanac
 
-One clean, filterable overview of academic opportunities for PhD researchers:
-**conferences**, **journal special issues**, and **summer schools / PhD courses**,
-scoped to Information Systems, Entrepreneurship/Management, Finance/Economics.
+One forward-looking overview for PhD researchers: conferences, calls for papers,
+calls for special issues, PhD courses and summer schools, plus grants, jobs and
+workshops — every deadline in one place.
 
-## Run it
+Live: https://dejanzafirev.github.io/academic-atlas/
 
-Open `index.html` in a browser. That's it — no build step, no server, no dependencies
-(Google Fonts loads from CDN; the app falls back to system fonts offline).
+## How it works
 
-## Structure
+Static site, no build step, no dependencies. `index.html` loads `js/app.js`,
+which fetches `data.json` at runtime and renders everything client-side.
+
+    content.xlsx  (OneDrive, one tab per category, 29 columns)
+        |  scripts/generate.py
+        v
+    data.json  ->  committed here  ->  GitHub Pages
+
+`content.xlsx` is the master and is deliberately **not** tracked here — it is
+binary, unmergeable, and lives in the shared OneDrive folder. Only the generated
+`data.json` is committed. Expired entries stop showing on the site but remain in
+the Excel.
+
+## Files
 
 | File | Role |
 |---|---|
-| `data.js` | **All data.** Schema documented at the top of the file. Swap this file for real/scraped data in v2 — the UI never needs to change. |
-| `app.js` | Presentation: hash routing, dashboard, filterable cluster views, detail panels, countdown ticker. |
-| `styles.css` | Design system (tokens at the top) + layout. |
-| `index.html` | Static shell: header, nav, footer. Views render into `#app`. |
+| `data.json` | All listings, generated from the Excel. Never hand-edit. |
+| `js/app.js` | Rendering, filtering, submission horizon, saved items, ICS export. |
+| `css/style.css` | Styles. |
+| `index.html` | Static shell. |
 
-## Conventions
+## Local preview
 
-- Data and presentation stay strictly separated — never hard-code listing content in `app.js`.
-- Every item must have a `submitUrl` that points at the actual submission/registration
-  system, not a homepage.
-- Deadlines are ISO dates; sorting is always soonest-first.
-- New disciplines/regions/filters: extend `data.js` + the config block at the top of `app.js`.
+`fetch()` is blocked on `file://`, so serve the folder over http:
 
-## Deliberately out of scope in v1
+    python -m http.server 8000
 
-Backend, scraping, auth, database, calendar export, job-market cluster
-(stubbed in the UI where cheap). See the disabled buttons marked "v2".
+then open http://localhost:8000

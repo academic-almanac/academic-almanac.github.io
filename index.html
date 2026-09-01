@@ -1,49 +1,118 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Academic Atlas — every academic deadline in one place</title>
-  <meta name="description" content="Conferences, journal special issues and PhD courses for Information Systems, Entrepreneurship/Management and Finance/Economics — filterable, deadline-first." />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Academic Almanac — Every deadline in one place</title>
+<link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-  <a class="skip-link" href="#app">Skip to content</a>
 
-  <header class="site-header">
-    <a class="wordmark" href="#/" aria-label="Academic Atlas — dashboard">
-      <svg class="wordmark-globe" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-           stroke-width="1.5" aria-hidden="true">
-        <circle cx="12" cy="12" r="9" />
-        <ellipse cx="12" cy="12" rx="4" ry="9" />
-        <path d="M3.5 9h17M3.5 15h17" />
-      </svg>
-      <span class="wordmark-text">Academic<em>Atlas</em></span>
-    </a>
-    <nav class="site-nav" aria-label="Primary">
-      <a href="#/" data-nav="dashboard">Dashboard</a>
-      <a href="#/conferences" data-nav="conference">Conferences</a>
-      <a href="#/special-issues" data-nav="special-issue">Special issues</a>
-      <a href="#/courses" data-nav="course">Courses</a>
-      <!-- v2 placeholder: job-market cluster (academia + industry R&D) -->
-      <span class="nav-stub" title="Planned — not part of this mockup">Job market <small>soon</small></span>
-    </nav>
-  </header>
+<header>
+  <div class="mast">
+    <div>
+      <h1>ACADEMIC <span>ALMANAC</span></h1>
+      <div class="tagline">EVERY DEADLINE IN ONE PLACE &mdash; MOCKUP v0.3</div>
+    </div>
+  </div>
+  <nav>
+    <div class="tabgrid" id="tabsgrid"></div>
+  </nav>
+</header>
 
-  <main id="app" tabindex="-1">
-    <!-- Views are rendered here by app.js -->
-    <noscript><p class="noscript">Academic Atlas needs JavaScript to render its listings.</p></noscript>
-  </main>
+<main>
+  <div id="horizon">
+    <div class="hhead">
+      <h3>Submission horizon</h3>
+      <span>CLICK A DOT TO JUMP TO THE POST</span>
+    </div>
+    <div class="htrack" id="htrack"></div>
+    <div class="hticks" id="hticks"></div>
+  </div>
 
-  <footer class="site-footer">
-    <p><strong>Academic Atlas</strong> · v1 — conferences verified against official sources; special issues &amp; courses are still seed data pending verification. Covers Information Systems, Entrepreneurship &amp; Management, Finance &amp; Economics.</p>
-    <p class="footer-fine">No login required to browse. Data collection &amp; organizer submissions arrive in v2.</p>
-  </footer>
+  <div class="toolbar">
+    <input id="search" type="search" placeholder="Search titles, organisers, locations&hellip;" oninput="render()">
+  </div>
 
-  <script src="data.js"></script>
-  <script src="app.js"></script>
+  <div id="composer">
+    <h2>Post a new opportunity</h2>
+    <div class="sect">Basics</div>
+    <div class="row">
+      <div><label>Category</label><select id="f-cat" onchange="composerCatChange()"></select></div>
+      <div><label>Acronym (optional)</label><input id="f-acronym" placeholder="e.g. HICSS-60"></div>
+    </div>
+    <label>Title</label>
+    <input id="f-title" placeholder="e.g. Hawaii International Conference on System Sciences">
+    <div class="row">
+      <div><label>Organiser / venue</label><input id="f-org" placeholder="e.g. University of Hawaii"></div>
+      <div><label>Mode</label><select id="f-mode">
+        <option>On-site</option><option>Online</option><option>Hybrid</option>
+      </select></div>
+    </div>
+    <div class="row">
+      <div><label>City</label><input id="f-city" placeholder="e.g. Maui"></div>
+      <div><label>Country</label><select id="f-country"></select></div>
+    </div>
+
+    <div class="sect">Dates</div>
+    <div class="row">
+      <div><label>Submission deadline</label><input id="f-subdl" type="date"></div>
+      <div id="f-regdl-wrap"><label>Registration deadline</label><input id="f-regdl" type="date"></div>
+      <div><label>Latest feedback date</label><input id="f-feedback" type="date"></div>
+    </div>
+    <div class="row" id="f-venue-row">
+      <div><label>Venue dates — from</label><input id="f-vstart" type="date"></div>
+      <div><label>Venue dates — to</label><input id="f-vend" type="date"></div>
+    </div>
+
+    <div class="sect" id="sect-money">Fees &amp; credits</div>
+    <div class="row">
+      <div><label id="f-fee-label">Fee (leave empty if free)</label><input id="f-fee" type="number" min="0" step="0.01" placeholder="e.g. 1150"></div>
+      <div id="f-feemax-wrap" style="display:none"><label>Salary band — to</label><input id="f-feemax" type="number" min="0" step="0.01" placeholder="e.g. 130000"></div>
+      <div><label>Currency</label><select id="f-currency"></select></div>
+      <div id="f-ects-wrap" style="display:none"><label>ECTS</label><input id="f-ects" type="number" min="0" step="0.5" placeholder="e.g. 5"></div>
+      <div id="f-sector-wrap" style="display:none"><label>Sector</label><select id="f-sector">
+        <option>Academic</option><option>Private sector R&amp;D</option><option>Public sector &amp; non-profit</option>
+      </select></div>
+    </div>
+
+    <div class="sect">Ratings</div>
+    <div class="row" id="f-ratings"></div>
+
+    <div class="sect">Links &amp; details</div>
+    <div class="row">
+      <div><label>Official site</label><input id="f-link" type="url" placeholder="https://&hellip;"></div>
+      <div><label>Submission link</label><input id="f-sublink" type="url" placeholder="https://&hellip;"></div>
+    </div>
+    <label>Details</label>
+    <textarea id="f-body" placeholder="Scope, tracks, keynote speakers, submission requirements&hellip;"></textarea>
+    <div class="formactions">
+      <button class="btn" onclick="submitPost()">Publish</button>
+      <button class="btn ghost" onclick="toggleComposer()">Cancel</button>
+    </div>
+  </div>
+
+  <div class="cols">
+    <section><div id="feed"></div></section>
+    <aside>
+      <div class="panel"><h3>Categories</h3><ul id="catcounts"></ul></div>
+      <div class="panel"><h3>Closing soon</h3><ul id="deadlines" class="deadlist"></ul></div>
+      <div class="panel" style="display:none"><h3>Your activity</h3><ul id="mystats"></ul></div>
+    </aside>
+  </div>
+</main>
+
+<footer>
+  Academic Almanac &middot; local prototype &middot; catalog from data.json, your activity stored in this browser only (localStorage)<br><br>
+  <b>Disclaimer:</b> Academic Almanac is a prototype provided for demonstration and entertainment purposes only.
+  All listings, dates, deadlines, fees, salaries, ratings, and other details are illustrative or user-submitted
+  and may be incomplete, inaccurate, or outdated. Nothing on this site constitutes professional, legal, or career
+  advice. Always verify all information directly with the official organiser, publisher, or employer before acting
+  on it. Academic Almanac and its operators accept no responsibility or liability for any errors, omissions, or for
+  any decisions made or actions taken in reliance on the content of this site. "Verified" labels reflect a status
+  set in the source spreadsheet only and do not constitute a guarantee of accuracy.
+</footer>
+
+<script src="js/app.js"></script>
 </body>
 </html>
