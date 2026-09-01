@@ -1,0 +1,20 @@
+// One JSON object per line. Lines starting with // and blank lines are ignored.
+// Scrapers and the email pipeline should write this shape. Field names may be the
+// Excel headers (submission_deadline, organiser) or the data.json names
+// (subDeadline, org) — ingest.py accepts either. Dates are ISO: YYYY-MM-DD.
+//
+// Only "category", "title", "organiser", "mode", "official_link" and
+// "description" really have to come from the source; ingest.py fills in id,
+// posted_date, author and verified=no. See the workbook's Field Guide sheet for
+// which fields each category requires.
+//
+//   python scripts/ingest.py candidates.jsonl            # review
+//   python scripts/ingest.py candidates.jsonl --write     # append
+//
+// "source" and "notes" are provenance for the human reviewer; they are not
+// written to the workbook. Add "skip": true to exclude a line without deleting it.
+
+{"category": "Calls for Special Issues", "title": "Special Issue: Digital Transformation of Public Administration", "organiser": "Government Information Quarterly", "mode": "Online", "submission_deadline": "2027-02-28", "official_link": "https://example.com/journal/call-for-papers", "description": "Special issue on digitalisation in the public sector. Full papers only.", "rating_ABS": "3", "rating_ABDC": "A", "source": "elsevier-scraper", "notes": "Deadline confirmed on the journal page 2026-09-01."}
+{"cat": "Conferences", "acronym": "ECIS-2027", "title": "European Conference on Information Systems", "org": "AIS", "city": "Porto", "country": "PT", "mode": "Hybrid", "subDeadline": "2026-11-20", "venueStart": "2027-06-14", "venueEnd": "2027-06-18", "link": "https://example.org/ecis2027", "body": "Main IS conference in Europe. Completed research and short papers.", "fee": 650, "currency": "EUR", "ratings": {"ABS": "3", "VHB": "B"}, "source": "wikicfp"}
+{"category": "Jobs & Positions", "title": "Postdoc in Digital Innovation", "organiser": "University of Liechtenstein", "city": "Vaduz", "country": "LI", "mode": "Remote", "submission_deadline": "2026-10-30", "official_link": "https://example.li/jobs/postdoc", "description": "Two-year postdoc in the digital innovation group.", "fee": 85000, "fee_max": 95000, "currency": "CHF", "sector": "Academic", "source": "manual"}
+{"category": "Calls for Papers", "title": "A call we decided not to list", "organiser": "Journal X", "mode": "Online", "submission_deadline": "2027-01-01", "official_link": "https://example.org/cfp", "description": "Out of scope for our audience.", "skip": true, "source": "mailing-list"}

@@ -148,8 +148,13 @@ def as_text(v):
     return str(v).strip()
 
 
-def as_date(v, where, problems):
-    """Excel date cell (or a parseable string) -> 'YYYY-MM-DD', or ''."""
+def as_date(v, where, problems, text_ok=False):
+    """Excel date cell (or a parseable string) -> 'YYYY-MM-DD', or ''.
+
+    text_ok: don't complain about dates that arrive as text. True when the
+    source is JSON or CSV (where an ISO string is the right representation),
+    False when reading the workbook (where a text date is a data-entry slip).
+    """
     if v is None or (isinstance(v, str) and not v.strip()):
         return ""
     if isinstance(v, datetime):
@@ -167,8 +172,9 @@ def as_date(v, where, problems):
                 iso = date(int(y), int(mo), int(d)).isoformat()
             except ValueError:
                 break
-            problems.append(("warn", where, "stored as text " + repr(s) +
-                             "; better to use a real Excel date cell"))
+            if not text_ok:
+                problems.append(("warn", where, "stored as text " + repr(s) +
+                                 "; better to use a real Excel date cell"))
             return iso
     problems.append(("error", where, "cannot read " + repr(s) + " as a date "
                      "(use a real Excel date cell)"))
@@ -210,16 +216,22 @@ def as_bool(v, where, problems):
 # --------------------------------------------------------------------------
 # Row -> post
 # --------------------------------------------------------------------------
-def build_post(raw, cat, sheet, excel_row, problems):
-    """raw: {header: cell value}. Returns a post dict, appending problems."""
+def build_post(raw, cat, sheet, excel_row, problems, text_dates_ok=False):
+    """raw: {header: cell value}. Returns a post dict, appending problems.
+
+    sheet/excel_row only name the row in messages; pass excel_row=None when the
+    source isn't a spreadsheet (see scripts/ingest.py).
+    """
     def where(col):
+        if excel_row is None:
+            return sheet + " [" + col + "]"
         return sheet + "!row " + str(excel_row) + " [" + col + "]"
 
     post = {}
     for col, key in FIELDS.items():
         v = raw.get(col)
         if col in DATE_COLS:
-            post[key] = as_date(v, where(col), problems)
+            post[key] = as_date(v, where(col), problems, text_ok=text_dates_ok)
         elif col in NUM_COLS:
             post[key] = as_number(v, where(col), problems)
         elif col == "verified":

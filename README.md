@@ -34,6 +34,36 @@ write, warnings do not.** Listings whose dates have all passed are dropped from
 `data.json` but stay in the Excel — that is what makes the site forward-looking.
 Output is sorted nearest submission deadline first.
 
+## Adding scraped or emailed listings
+
+`scripts/ingest.py` is the "integrate" step: it appends reviewed candidate
+records to the Excel master.
+
+    python scripts/ingest.py candidates.jsonl            # review, writes nothing
+    python scripts/ingest.py candidates.jsonl --write     # append to the workbook
+
+**Review is the default** — nothing touches the workbook without `--write`, and
+`--write` takes a timestamped backup first. Candidates may be `.jsonl`, `.json`
+or `.csv`, using either the Excel header names or the data.json names; see
+`scripts/candidates.example.jsonl`.
+
+Every candidate is validated with exactly the rules `generate.py` enforces, so a
+row that ingests will not break the build. Rows with errors are skipped. Rows
+that look like something already listed — same link, same acronym + deadline, or
+a near-identical title in the same category — are skipped as duplicates, which
+makes re-running a weekly scrape safe.
+
+Appended rows get the next unused id, today's `posted_date`, `verified = no`
+(scraped data is unverified until a human checks it) and the `--author` value.
+
+The full loop:
+
+    scrapers / email  ->  candidates.jsonl
+                          ingest.py            (review, then --write)
+                          content.xlsx
+                          generate.py
+                          data.json  ->  commit  ->  push  ->  Pages
+
 ## Files
 
 | File | Role |
