@@ -1,0 +1,103 @@
+name: Weekly scrape
+
+# Scrapes sources once a week and files whatever is new for review. It does NOT
+# publish: content.xlsx is the master and lives in OneDrive, outside git, so the
+# workbook and data.json can only be updated from a maintainer's machine. That
+# also keeps the human quality-check in the loop instead of auto-publishing
+# unverified scrapes.
+#
+# A run: scrape (ignoring everything already in data.json or candidates/) ->
+# commit candidates/emerald-<date>.jsonl if anything is new -> open an issue
+# listing it with the commands to integrate it.
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"        # Mondays 06:00 UTC
+  workflow_dispatch:
+    inputs:
+      max_pages:
+        description: "Listing pages to read (6 calls each)"
+        required: false
+        default: "8"
+      min_days:
+        description: "Skip calls closing sooner than this many days"
+        required: false
+        default: "7"
+
+permissions:
+  contents: write              # to commit the candidates file
+  issues: write                # to open the review issue
+
+concurrency:
+  group: weekly-scrape
+  cancel-in-progress: false
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30        # a 15s crawl delay per page adds up
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install --quiet requests beautifulsoup4 lxml openpyxl
+
+      - name: Scrape Emerald
+        id: scrape
+        env:
+          MAX_PAGES: ${{ github.event.inputs.max_pages || '8' }}
+          MIN_DAYS: ${{ github.event.inputs.min_days || '7' }}
+        run: |
+          set -euo pipefail
+          OUT="candidates/emerald-$(date -u +%F).jsonl"
+
+          # Everything already published, plus everything a previous run filed -
+          # including lines a human marked "skip", so rejected calls stay
+          # rejected instead of returning every Monday.
+          KNOWN="--known data.json"
+          for f in candidates/*.jsonl; do
+            [ -e "$f" ] && KNOWN="$KNOWN --known $f"
+          done
+
+          python scripts/scrape_emerald.py \
+            --max-pages "$MAX_PAGES" \
+            --min-days "$MIN_DAYS" \
+            --allow-empty \
+            $KNOWN \
+            --out "$OUT"
+
+          if [ -f "$OUT" ]; then
+            COUNT=$(grep -cv '^//' "$OUT")
+            echo "new=true"        >> "$GITHUB_OUTPUT"
+            echo "count=$COUNT"    >> "$GITHUB_OUTPUT"
+            echo "file=$OUT"       >> "$GITHUB_OUTPUT"
+          else
+            echo "new=false"       >> "$GITHUB_OUTPUT"
+            echo "Nothing new this week."
+          fi
+
+      - name: Commit the candidates file
+        if: steps.scrape.outputs.new == 'true'
+        run: |
+          set -euo pipefail
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "${{ steps.scrape.outputs.file }}"
+          git commit -m "Weekly scrape: ${{ steps.scrape.outputs.count }} new call(s) for review"
+          git push
+
+      - name: Open a review issue
+        if: steps.scrape.outputs.new == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          python scripts/issue_body.py "${{ steps.scrape.outputs.file }}" > body.md
+          gh issue create \
+            --title "Weekly scrape: ${{ steps.scrape.outputs.count }} new call(s) for review" \
+            --body-file body.md

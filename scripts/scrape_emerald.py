@@ -164,6 +164,12 @@ def main():
                     help="include books and case studies, not just journals")
     ap.add_argument("--sort", choices=sorted(SORTS), default="newest",
                     help="listing order (default: newest, i.e. recently added)")
+    ap.add_argument("--known", type=Path, action="append", default=[],
+                    help="data.json or a .jsonl of candidates whose links are "
+                         "already handled; repeatable. Matching calls are dropped "
+                         "so a weekly run only reports what is new.")
+    ap.add_argument("--allow-empty", action="store_true",
+                    help="exit 0 when nothing new is found (for scheduled runs)")
     args = ap.parse_args()
 
     out = args.out or (root / "candidates" /
@@ -189,10 +195,40 @@ def main():
     print("robots.txt allows the listing; using a " + format(delay, "g") +
           "s delay between requests.")
 
+    # ---- links we already know about, so a weekly run reports only new calls ----
+    def links_in(path):
+        text = path.read_text(encoding="utf-8")
+        if path.suffix == ".json":
+            for post in json.loads(text).get("posts", []):
+                for key in ("link", "subLink", "official_link"):
+                    if post.get(key):
+                        yield post[key]
+            return
+        for line in text.splitlines():
+            line = line.strip()
+            if line and not line.startswith("//"):
+                try:
+                    rec = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                for key in ("official_link", "link"):
+                    if rec.get(key):
+                        yield rec[key]
+
+    known = set()
+    for path in args.known:
+        if path.exists():
+            found = set(links_in(path))
+            known |= found
+            print("known: " + str(len(found)) + " link(s) from " + path.name)
+        else:
+            print("known: " + str(path) + " not found - ignoring")
+
     today = date.today()
     records, seen_links, skipped = [], set(), {"no date": 0, "closing soon": 0,
                                                "past": 0, "duplicate": 0,
-                                               "incomplete": 0}
+                                               "incomplete": 0,
+                                               "already known": 0}
 
     for page in range(args.max_pages):
         params = {"page": page, "sort_bef_combine": SORTS[args.sort]}
@@ -218,6 +254,9 @@ def main():
             if rec["official_link"] in seen_links:
                 skipped["duplicate"] += 1
                 continue
+            if rec["official_link"] in known:
+                skipped["already known"] += 1
+                continue
             if not rec["submission_deadline"]:
                 skipped["no date"] += 1
                 continue
@@ -239,10 +278,19 @@ def main():
         if args.limit and len(records) >= args.limit:
             break
 
+    dropped = ", ".join(k + ": " + str(v) for k, v in skipped.items() if v)
     if not records:
-        print("\nNothing scraped. If the page layout changed, the CSS selectors "
-              "in parse_page() are what needs updating.")
-        return 1
+        print("\nNothing new." + ("  Dropped - " + dropped if dropped else ""))
+        if sum(skipped.values()) == 0:
+            print("No cards matched the selectors - the page layout probably "
+                  "changed; parse_page() is what needs updating.")
+        elif skipped["already known"]:
+            print("Every call on these pages is already known, which is the "
+                  "normal result for a weekly run.")
+        else:
+            print("Cards were found and parsed, so the filters rejected them "
+                  "all. Try --sort newest, or a smaller --min-days.")
+        return 0 if args.allow_empty else 1
 
     with out.open("w", encoding="utf-8") as fh:
         fh.write("// Scraped from " + LISTING + " on " +
@@ -251,7 +299,6 @@ def main():
             fh.write(json.dumps(rec, ensure_ascii=False) + "\n")
 
     print("\n" + str(len(records)) + " call(s) written to " + str(out))
-    dropped = ", ".join(k + ": " + str(v) for k, v in skipped.items() if v)
     if dropped:
         print("Dropped - " + dropped)
     print("\nEarliest deadlines:")
