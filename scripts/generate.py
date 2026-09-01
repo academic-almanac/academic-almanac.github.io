@@ -72,7 +72,14 @@ CATEGORIES = [
 NON_CATEGORY_SHEETS = {"Legend & rules", "Field Guide"}
 
 MODES = ["On-site", "Online", "Hybrid"]
+# Extra modes allowed on specific sheets. A job can be genuinely remote, which
+# is not the same claim as an event being held "Online".
+MODES_EXTRA = {"Jobs & Positions": ["Remote"]}
 SECTORS = ["Academic", "Private sector R&D", "Public sector & non-profit"]
+
+# Required by the Field Guide, but a missing value is not worth blocking a
+# build: js/app.js renders "posted by Unknown" when author is empty.
+SOFT_REQUIRED = {"author"}
 GRADES = {
     "rating_ABS":  ["4*", "4", "3", "2", "1"],
     "rating_ABDC": ["A*", "A", "B", "C"],
@@ -250,7 +257,8 @@ def build_post(raw, cat, sheet, excel_row, problems):
         need = guide(col, cat)
         filled = bool(as_text(raw.get(col)))
         if need == "X" and not filled:
-            problems.append(("error", where(col), "required for " + cat))
+            kind = "warn" if col in SOFT_REQUIRED else "error"
+            problems.append((kind, where(col), "required for " + cat))
         elif need == " " and filled and col not in RATING_COLS:
             problems.append(("warn", where(col), "not used for " + cat +
                              "; kept, but check the entry"))
@@ -262,9 +270,11 @@ def build_post(raw, cat, sheet, excel_row, problems):
                          "; using the sheet name"))
     post["cat"] = cat
 
-    if post["mode"] and post["mode"] not in MODES:
+    allowed_modes = MODES + MODES_EXTRA.get(cat, [])
+    if post["mode"] and post["mode"] not in allowed_modes:
         problems.append(("error", where("mode"), "must be one of " +
-                         " | ".join(MODES) + ", found " + repr(post["mode"])))
+                         " | ".join(allowed_modes) + ", found " +
+                         repr(post["mode"])))
     if post["country"] and not re.fullmatch(r"[A-Za-z]{2}", post["country"]):
         problems.append(("warn", where("country_code"), repr(post["country"]) +
                          " is not a 2-letter ISO code"))
