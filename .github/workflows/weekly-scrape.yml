@@ -1,14 +1,15 @@
 name: Weekly scrape
 
-# Scrapes sources once a week and files whatever is new for review. It does NOT
-# publish: content.xlsx is the master and lives in OneDrive, outside git, so the
-# workbook and data.json can only be updated from a maintainer's machine. That
-# also keeps the human quality-check in the loop instead of auto-publishing
-# unverified scrapes.
+# Scrapes weekly and opens a pull request. Merging the PR publishes; closing it
+# rejects. Nothing goes live unreviewed, and nothing needs a local command.
 #
-# A run: scrape (ignoring everything already in data.json or candidates/) ->
-# commit candidates/emerald-<date>.jsonl if anything is new -> open an issue
-# listing it with the commands to integrate it.
+#   scrape -> branch scrape/<date> -> publish.py rebuilds data.json
+#          -> commit -> PR, review requested from the maintainer
+#
+# The PR diff shows exactly what will appear on the site. To drop an entry,
+# edit its line in the candidates file to add  "skip": true  (GitHub's web
+# editor works fine on a phone) - pr-sync.yml then rebuilds data.json on the
+# branch so the diff stays honest.
 
 on:
   schedule:
@@ -25,8 +26,8 @@ on:
         default: "7"
 
 permissions:
-  contents: write              # to commit the candidates file
-  issues: write                # to open the review issue
+  contents: write              # commit the branch
+  pull-requests: write         # open the PR
 
 concurrency:
   group: weekly-scrape
@@ -47,19 +48,19 @@ jobs:
       - name: Install dependencies
         run: pip install --quiet requests beautifulsoup4 lxml openpyxl
 
-      - name: Scrape Emerald
+      - name: Scrape
         id: scrape
         env:
           MAX_PAGES: ${{ github.event.inputs.max_pages || '8' }}
           MIN_DAYS: ${{ github.event.inputs.min_days || '7' }}
         run: |
           set -euo pipefail
-          OUT="candidates/emerald-$(date -u +%F).jsonl"
+          DATE="$(date -u +%F)"
+          OUT="candidates/emerald-$DATE.jsonl"
 
           # candidates/seen.txt is the durable memory - every link ever emitted,
-          # including ones a reviewer rejected - and the scraper reads and
-          # appends to it automatically. data.json is passed as a belt-and-braces
-          # check against what is actually published.
+          # rejections included - and the scraper reads and appends to it.
+          # data.json is a belt-and-braces check against what is published.
           python scripts/scrape_emerald.py \
             --max-pages "$MAX_PAGES" \
             --min-days "$MIN_DAYS" \
@@ -68,34 +69,47 @@ jobs:
             --out "$OUT"
 
           if [ -f "$OUT" ]; then
-            COUNT=$(grep -cv '^//' "$OUT")
-            echo "new=true"        >> "$GITHUB_OUTPUT"
-            echo "count=$COUNT"    >> "$GITHUB_OUTPUT"
-            echo "file=$OUT"       >> "$GITHUB_OUTPUT"
+            echo "new=true"                     >> "$GITHUB_OUTPUT"
+            echo "count=$(grep -cv '^//' "$OUT")" >> "$GITHUB_OUTPUT"
+            echo "file=$OUT"                    >> "$GITHUB_OUTPUT"
+            echo "branch=scrape/$DATE"          >> "$GITHUB_OUTPUT"
           else
-            echo "new=false"       >> "$GITHUB_OUTPUT"
-            echo "Nothing new this week."
+            echo "new=false" >> "$GITHUB_OUTPUT"
+            echo "Nothing new this week - no pull request needed."
           fi
 
-      - name: Commit the candidates file
+      - name: Rebuild data.json
         if: steps.scrape.outputs.new == 'true'
+        run: python scripts/publish.py
+
+      - name: Open a pull request
+        if: steps.scrape.outputs.new == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BRANCH: ${{ steps.scrape.outputs.branch }}
+          FILE: ${{ steps.scrape.outputs.file }}
+          COUNT: ${{ steps.scrape.outputs.count }}
         run: |
           set -euo pipefail
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          # seen.txt must be committed too, or next week's runner starts blind
-          # and re-offers everything, rejections included.
-          git add "${{ steps.scrape.outputs.file }}" candidates/seen.txt
-          git commit -m "Weekly scrape: ${{ steps.scrape.outputs.count }} new call(s) for review"
-          git push
 
-      - name: Open a review issue
-        if: steps.scrape.outputs.new == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -euo pipefail
-          python scripts/issue_body.py "${{ steps.scrape.outputs.file }}" > body.md
-          gh issue create \
-            --title "Weekly scrape: ${{ steps.scrape.outputs.count }} new call(s) for review" \
-            --body-file body.md
+          # A second run on the same day reuses the branch rather than failing.
+          git checkout -B "$BRANCH"
+          git add candidates data data.json
+          git commit -m "Weekly scrape: $COUNT new call(s)"
+          git push --force-with-lease origin "$BRANCH"
+
+          python scripts/issue_body.py "$FILE" > body.md
+          if gh pr view "$BRANCH" --json number >/dev/null 2>&1; then
+            gh pr edit "$BRANCH" --title "Weekly scrape: $COUNT new call(s)" \
+                                 --body-file body.md
+            echo "Updated the existing pull request."
+          else
+            gh pr create \
+              --base main --head "$BRANCH" \
+              --title "Weekly scrape: $COUNT new call(s)" \
+              --body-file body.md \
+              --reviewer "${{ github.repository_owner == 'academic-almanac' && 'dejanzafirev' || github.actor }}" \
+              --assignee dejanzafirev
+          fi

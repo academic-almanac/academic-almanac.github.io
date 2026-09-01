@@ -34,6 +34,39 @@ write, warnings do not.** Listings whose dates have all passed are dropped from
 `data.json` but stay in the Excel — that is what makes the site forward-looking.
 Output is sorted nearest submission deadline first.
 
+## The two data sources
+
+Hand-curated listings live in `content.xlsx` (OneDrive, where the team edits it).
+Scraped listings live in git, so Actions can publish them without anyone's laptop.
+`publish.py` merges both into the `data.json` the site reads:
+
+    content.xlsx --generate.py--> data/manual.json  --.
+                                                       >-- publish.py --> data.json
+    candidates/*.jsonl (approved) --> data/scraped.jsonl --'
+
+    python scripts/generate.py --out data/manual.json   # after editing the Excel
+    python scripts/publish.py                           # rebuild data.json
+
+Ids in `data/scraped.jsonl` are permanent: visitors' saved listings are keyed by
+id in their own browser, so a shifting id would move somebody's stars onto a
+different listing. Scraped ids start at 100000 and can never collide with the
+workbook's.
+
+Adding `"skip": true` to a candidate line withdraws it - before or after
+publication.
+
+## The weekly cycle (no local step)
+
+`.github/workflows/weekly-scrape.yml` runs Mondays 06:00 UTC, scrapes what is
+new, rebuilds `data.json`, and opens a pull request with review requested. The
+diff shows exactly what would go live.
+
+* **Merge** -> published, Pages rebuilds automatically.
+* **Reject one entry** -> edit its line in the candidates file to add
+  `"skip": true`; `pr-sync.yml` rebuilds `data.json` on the branch.
+* **Reject the batch** -> close the PR. `candidates/seen.txt` remembers the
+  links, so they are not offered again.
+
 ## Adding scraped or emailed listings
 
 `scripts/ingest.py` is the "integrate" step: it appends reviewed candidate

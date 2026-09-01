@@ -1,0 +1,58 @@
+name: Keep a scrape PR in sync
+
+# When a reviewer edits a candidates file inside a scrape pull request - adding
+# "skip": true to drop a listing - data.json on that branch is stale until it is
+# rebuilt. This rebuilds it and commits, so the PR diff always shows exactly
+# what merging would publish.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - "candidates/**"
+      - "data/**"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pr-sync-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  sync:
+    # Only for branches this project's own automation created, and never for a
+    # fork - a fork's PR cannot be pushed to, and giving it write would be a
+    # way in for anyone.
+    if: >
+      startsWith(github.head_ref, 'scrape/') &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install --quiet openpyxl
+
+      - name: Rebuild data.json
+        run: python scripts/publish.py
+
+      - name: Commit if anything changed
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- data.json data; then
+            echo "data.json already matches the candidates - nothing to do."
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data.json data
+          git commit -m "Rebuild data.json after review edits"
+          git push origin HEAD:"${{ github.head_ref }}"
